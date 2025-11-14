@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/gdamore/tcell"
+)
 
 func Test_Editor_insert(t *testing.T) {
 	tests := []struct {
@@ -155,10 +159,10 @@ func Test_Editor_unix_word_rubout(t *testing.T) {
 		{
 			comment: "unix-word-rubout tab as space char (although is it a realistic case in the context of a command line instruction?)",
 			e: Editor{
-				value: []rune(`a b		c`),
+				value:  []rune(`a b		c`),
 				cursor: 5,
 			},
-			wantValue: []rune(`a c`),
+			wantValue:     []rune(`a c`),
 			wantKillspace: []rune(`b		`),
 		},
 	}
@@ -171,5 +175,44 @@ func Test_Editor_unix_word_rubout(t *testing.T) {
 		if string(tt.e.killspace) != string(tt.wantKillspace) {
 			t.Errorf("%q: bad value in killspace\nwant: %q\nhave: %q", tt.comment, tt.wantKillspace, tt.e.value)
 		}
+	}
+}
+
+func Test_Editor_HandleKey_shiftEnterInsertsNewline(t *testing.T) {
+	e := Editor{
+		value:  []rune("echo foo"),
+		cursor: 4,
+	}
+
+	handled := e.HandleKey(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModShift))
+	if !handled {
+		t.Fatalf("expected HandleKey to handle shift+enter")
+	}
+	want := "echo\n foo"
+	if string(e.value) != want {
+		t.Fatalf("unexpected value: want %q, have %q", want, string(e.value))
+	}
+}
+
+func Test_Editor_Height(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  int
+	}{
+		{name: "empty", value: "", want: 1},
+		{name: "single", value: "echo foo", want: 1},
+		{name: "two lines", value: "echo\nfoo", want: 2},
+		{name: "trailing", value: "echo\n", want: 2},
+		{name: "three lines", value: "a\nb\nc", want: 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := Editor{value: []rune(tt.value)}
+			if got := e.Height(); got != tt.want {
+				t.Fatalf("Height() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
