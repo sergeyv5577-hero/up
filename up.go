@@ -390,7 +390,7 @@ func (e *Editor) Height() int {
 func (e *Editor) DrawTo(region Region, style tcell.Style, setcursor func(x, y int)) {
 	for y := 0; y < region.H; y++ {
 		for x := 0; x < region.W; x++ {
-			region.SetCell(x, y, tcell.StyleDefault, ' ')
+			region.SetCell(x, y, style, ' ')
 		}
 	}
 
