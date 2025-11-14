@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/gdamore/tcell"
+)
 
 func Test_Editor_insert(t *testing.T) {
 	tests := []struct {
@@ -171,5 +175,21 @@ func Test_Editor_unix_word_rubout(t *testing.T) {
 		if string(tt.e.killspace) != string(tt.wantKillspace) {
 			t.Errorf("%q: bad value in killspace\nwant: %q\nhave: %q", tt.comment, tt.wantKillspace, tt.e.value)
 		}
+	}
+}
+
+func Test_Editor_HandleKey_shiftEnterInsertsNewline(t *testing.T) {
+	e := Editor{
+		value:  []rune("echo foo"),
+		cursor: 4,
+	}
+
+	handled := e.HandleKey(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModShift))
+	if !handled {
+		t.Fatalf("expected HandleKey to handle shift+enter")
+	}
+	want := "echo\n foo"
+	if string(e.value) != want {
+		t.Fatalf("unexpected value: want %q, have %q", want, string(e.value))
 	}
 }

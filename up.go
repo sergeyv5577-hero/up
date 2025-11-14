@@ -29,6 +29,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"unicode"
 
@@ -234,14 +235,30 @@ func main() {
 
 		// Draw UI
 		w, h := tui.Size()
+		editorHeight := strings.Count(command, "\n") + 1
+		maxEditorHeight := h - 2
+		if maxEditorHeight < 1 {
+			maxEditorHeight = 1
+		}
+		if editorHeight > maxEditorHeight {
+			editorHeight = maxEditorHeight
+		}
+
 		style := whiteOnBlue
 		if command == lastCommand {
 			style = whiteOnDBlue
 		}
-		stdinCapture.DrawStatus(TuiRegion(tui, 0, 0, 1, 1), style)
-		commandEditor.DrawTo(TuiRegion(tui, 1, 0, w-1, 1), style,
-			func(x, y int) { tui.ShowCursor(x+1, 0) })
-		commandOutput.DrawTo(TuiRegion(tui, 0, 1, w, h-1))
+		stdinCapture.DrawStatus(TuiRegion(tui, 0, 0, 1, editorHeight), style)
+		commandEditor.DrawTo(TuiRegion(tui, 1, 0, w-1, editorHeight), style,
+			func(x, y int) { tui.ShowCursor(x+1, y) })
+
+		outputHeight := h - editorHeight - 1
+		if outputHeight < 0 {
+			outputHeight = 0
+		}
+		if outputHeight > 0 {
+			commandOutput.DrawTo(TuiRegion(tui, 0, editorHeight, w, outputHeight))
+		}
 		drawText(TuiRegion(tui, 0, h-1, w, 1), whiteOnBlue, message)
 		tui.Show()
 
@@ -351,7 +368,6 @@ func NewEditor(prompt, value string) *Editor {
 }
 
 type Editor struct {
-	// TODO: make editor multiline. Reuse gocui or something for this?
 	prompt    []rune
 	value     []rune
 	killspace []rune
@@ -363,23 +379,48 @@ type Editor struct {
 func (e *Editor) String() string { return string(e.value) }
 
 func (e *Editor) DrawTo(region Region, style tcell.Style, setcursor func(x, y int)) {
-	// Draw prompt & the edited value - use white letters on blue background
-	for i, ch := range e.prompt {
-		region.SetCell(i, 0, style, ch)
-	}
-	for i, ch := range e.value {
-		region.SetCell(len(e.prompt)+i, 0, style, ch)
+	for y := 0; y < region.H; y++ {
+		for x := 0; x < region.W; x++ {
+			region.SetCell(x, y, tcell.StyleDefault, ' ')
+		}
 	}
 
-	// Clear remains of last value if needed
-	for i := len(e.value); i < e.lastw; i++ {
-		region.SetCell(len(e.prompt)+i, 0, tcell.StyleDefault, ' ')
+	x, y := 0, 0
+	for _, ch := range e.prompt {
+		if y >= region.H || x >= region.W {
+			break
+		}
+		region.SetCell(x, y, style, ch)
+		x++
+	}
+
+	cx, cy := x, y
+	for i, ch := range e.value {
+		if i == e.cursor {
+			cx, cy = x, y
+		}
+		if ch == '\n' {
+			x, y = 0, y+1
+			if y >= region.H {
+				break
+			}
+			continue
+		}
+		if y >= region.H {
+			break
+		}
+		if x < region.W {
+			region.SetCell(x, y, style, ch)
+		}
+		x++
+	}
+	if e.cursor == len(e.value) {
+		cx, cy = x, y
 	}
 	e.lastw = len(e.value)
 
-	// Show cursor if requested
 	if setcursor != nil {
-		setcursor(len(e.prompt)+e.cursor, 0)
+		setcursor(cx, cy)
 	}
 }
 
@@ -387,6 +428,10 @@ func (e *Editor) HandleKey(ev *tcell.EventKey) bool {
 	// If a character is entered, with no modifiers except maybe shift, then just insert it
 	if ev.Key() == tcell.KeyRune && ev.Modifiers()&(^tcell.ModShift) == 0 {
 		e.insert(ev.Rune())
+		return true
+	}
+	if getKey(ev) == shiftKey(tcell.KeyEnter) {
+		e.insert('\n')
 		return true
 	}
 	// Handle editing & movement keys
@@ -790,6 +835,7 @@ type key int32
 func getKey(ev *tcell.EventKey) key { return key(ev.Modifiers())<<16 + key(ev.Key()) }
 func altKey(base tcell.Key) key     { return key(tcell.ModAlt)<<16 + key(base) }
 func ctrlKey(base tcell.Key) key    { return key(tcell.ModCtrl)<<16 + key(base) }
+func shiftKey(base tcell.Key) key   { return key(tcell.ModShift)<<16 + key(base) }
 
 func writeScript(shell []string, command string, tui tcell.Screen) {
 	os.Stderr.WriteString("up: Ultimate Plumber v" + version + " https://github.com/akavel/up\n")
