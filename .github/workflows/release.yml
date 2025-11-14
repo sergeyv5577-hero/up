@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: |
+          mkdir -p dist
+          go build -o dist/up .
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/up
+          body: |
+            ## Summary
+            - Enable multi-line command editing with Shift+Enter.
+            - Resize the command editor to fit the entered command.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

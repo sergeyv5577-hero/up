@@ -38,7 +38,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-const version = "0.5.1 (2025-11-14)"
+const version = "0.5.2 (2025-11-14)"
 
 // TODO: in case of error, show it in red (bg?), then below show again initial normal output (see also #4)
 // TODO: F1 should display help, and it should be multi-line, and scrolling licensing credits
