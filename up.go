@@ -29,7 +29,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"unicode"
 
@@ -39,7 +38,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-const version = "0.5 (2025-11-14)"
+const version = "0.5.1 (2025-11-14)"
 
 // TODO: in case of error, show it in red (bg?), then below show again initial normal output (see also #4)
 // TODO: F1 should display help, and it should be multi-line, and scrolling licensing credits
@@ -195,7 +194,7 @@ func main() {
 		// The rest of the screen is a view of the results of the command
 		commandOutput = BufView{}
 		// Sometimes, a message may be displayed at the bottom of the screen, with help or other info
-		message = `Enter runs  ^X exit (^C nosave)  PgUp/PgDn/Up/Dn/^</^> scroll  ^S pause (^Q end)  [Ultimate Plumber v` + version + ` by akavel et al.]`
+		message = `Enter runs  Shift+Enter newline  ^X exit (^C nosave)  PgUp/PgDn/Up/Dn/^</^> scroll  ^S pause (^Q end)  [Ultimate Plumber v` + version + ` by akavel et al.]`
 	)
 
 	// Initialize main data flow
@@ -235,7 +234,7 @@ func main() {
 
 		// Draw UI
 		w, h := tui.Size()
-		editorHeight := strings.Count(command, "\n") + 1
+		editorHeight := commandEditor.Height()
 		maxEditorHeight := h - 2
 		if maxEditorHeight < 1 {
 			maxEditorHeight = 1
@@ -377,6 +376,16 @@ type Editor struct {
 }
 
 func (e *Editor) String() string { return string(e.value) }
+
+func (e *Editor) Height() int {
+	h := 1
+	for _, ch := range e.value {
+		if ch == '\n' {
+			h++
+		}
+	}
+	return h
+}
 
 func (e *Editor) DrawTo(region Region, style tcell.Style, setcursor func(x, y int)) {
 	for y := 0; y < region.H; y++ {
